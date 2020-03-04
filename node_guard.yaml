@@ -1,0 +1,82 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: node-guard
+  labels:
+    app: node-guard
+spec:
+  selector:
+    matchLabels:
+      app: node-guard
+  template:
+    metadata:
+      labels:
+        app: node-guard
+    spec:
+      hostNetwork: true
+      volumes:
+        - name: conf
+          configMap:
+            name: node-guard-conf
+        - name: host
+          hostPath:
+            path: /
+      containers:
+        - name: node-guard
+          image: node-guard:1.0
+          imagePullPolicy: Always
+          args:
+            - -p=2376
+            - -m=/host
+            - -c=/etc/node-guard/conf.yaml
+          ports:
+            - containerPort: 2376
+          resources:
+            limits:
+              memory: 64Mi
+              cpu: 10m
+            requests:
+              memory: 64Mi
+              cpu: 10m
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/node-guard
+            - name: host
+              mountPath: /host
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-guard-conf
+data:
+  conf.yaml: |
+    checkers:
+      disable:
+        - fake
+    os:
+      checkInterval: 1m
+      kernel.parameters:
+        - vm.dirty_background_ratio
+        - vm.dirty_ratio
+        - vm.max_map_count
+      units:
+        - network.service
+        - kubelet.service
+        - ambari-agent.service
+        - firewalld.service
+        - ntpd.service
+        - docker.service
+        - etcd.service
+    kubernetes:
+      checkInterval: 1m
+    network:
+      checkInterval: 1m
+      etc.hosts.concerned:
+        - localhost
+      kernel.parameters:
+        - net.bridge.bridge-nf-call-iptables
+        - net.bridge.bridge-nf-call-ip6tables
+        - net.ipv4.ip_local_reserved_ports
+        - net.ipv4.ip_forward
+    hadoop:
+      checkInterval: 1m
